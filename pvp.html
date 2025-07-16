@@ -1,0 +1,1890 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Carrés Connectés</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Caveat for handwritten style -->
+    <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;700&display=swap" rel="stylesheet">
+    <!-- Tone.js CDN for sound effects -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <style>
+        html, body {
+            height: 100%; /* Ensure html and body take full viewport height */
+        }
+        body {
+            font-family: 'Caveat', cursive; /* Handwritten font */
+            background-color: #f5f5f5; /* Light paper-like background */
+            color: #333333; /* Dark text for contrast */
+            display: flex;
+            flex-direction: column; /* Changed to column to allow container to flex grow */
+            justify-content: center;
+            align-items: center;
+            margin: 0;
+            overflow: hidden; /* Prevent overall page scrolling, content inside will scroll if needed */
+        }
+
+        .container {
+            background-color: #e8e8e8; /* Slightly darker light background for container */
+            border-radius: 1.5rem; /* Rounded corners */
+            box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2); /* Softer shadow */
+            padding: 2rem;
+            max-width: 90%;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            flex-grow: 1; /* Allow container to take available vertical space */
+            max-height: calc(100vh - 4rem); /* Constrain to viewport height minus body padding (2rem top/bottom) */
+            overflow-y: auto; /* Allow scrolling for unified options */
+            justify-content: flex-start; /* Align content to top */
+        }
+
+        canvas {
+            background-color: #ffffff; /* White paper look for canvas */
+            border-radius: 1rem;
+            box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.1); /* Very subtle inner shadow */
+            touch-action: none; /* Prevent default touch actions like scrolling/zooming */
+            display: block; /* Ensure canvas behaves as a block element */
+            /* No explicit width/height here, let JS handle it */
+        }
+
+        .player-score {
+            transition: all 0.3s ease-in-out;
+            border-radius: 0.75rem;
+            padding: 0.5rem 1rem;
+            margin: 0 0.5rem;
+            font-weight: bold;
+            font-size: 1.8rem; /* Larger font for handwritten feel */
+        }
+
+        .player-red {
+            background-color: #d62828; /* Muted Red */
+            color: white;
+        }
+
+        .player-blue {
+            background-color: #2a9d8f; /* Teal-Blue */
+            color: white;
+        }
+
+        /* Animation for active player */
+        .player-active {
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.5); /* More pronounced shadow */
+            transform: scale(1.05);
+            animation: pulse-shadow 1.5s infinite alternate; /* Subtle pulsing shadow */
+        }
+
+        @keyframes pulse-shadow {
+            from {
+                box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
+            }
+            to {
+                box-shadow: 0 0 25px rgba(0, 0, 0, 0.7);
+            }
+        }
+
+
+        .btn {
+            @apply px-6 py-3 rounded-xl font-bold text-lg transition-all duration-300 ease-in-out transform hover:scale-105 active:scale-95;
+            box-shadow: 0 3px 5px rgba(0, 0, 0, 0.2); /* Softer button shadow */
+            border: 2px solid #888888; /* Subtle border for drawn look */
+            cursor: pointer;
+        }
+
+        .btn-primary {
+            @apply bg-blue-500 text-white hover:bg-blue-600; /* Adjusted blue for lighter theme */
+        }
+
+        .btn-secondary {
+            @apply bg-gray-400 text-gray-800 hover:bg-gray-500; /* Adjusted grey for lighter theme */
+        }
+
+        /* Style for selected options */
+        .selected-option {
+            border-color: #2a9d8f; /* Teal border for selected */
+            box-shadow: 0 0 15px rgba(42, 157, 143, 0.5); /* Glowing effect */
+            transform: scale(1.02);
+        }
+
+        .modal {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.4); /* Lighter overlay */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            border-radius: 1.5rem;
+            backdrop-filter: blur(3px); /* Less blur */
+        }
+
+        .modal-content {
+            background-color: #e8e8e8; /* Matching container background */
+            padding: 3rem;
+            border-radius: 1.5rem;
+            text-align: center;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3); /* Softer shadow */
+            transform: translateY(-20px);
+            opacity: 0;
+            animation: fadeInSlideUp 0.5s forwards;
+            color: #333333; /* Dark text */
+            max-width: 90%;
+            max-height: 90%;
+            overflow-y: auto;
+        }
+
+        @keyframes fadeInSlideUp {
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .timer-display {
+            font-size: 1.8rem; /* Larger font */
+            font-weight: bold;
+            color: #555555; /* Darker grey */
+            margin-bottom: 1rem;
+            display: flex;
+            gap: 1rem;
+        }
+
+        .timer-segment {
+            background-color: #cccccc; /* Lighter grey */
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+        }
+
+        /* Styles for turn timer text color (still used for normal state) */
+        .turn-timer-low {
+            color: #d62828; /* Red for low time */
+        }
+
+        .turn-timer-normal {
+            color: #555555; /* Normal grey color */
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+            .btn {
+                padding: 0.75rem 1.5rem;
+                font-size: 1rem;
+            }
+            .modal-content {
+                padding: 2rem;
+            }
+            .timer-display {
+                font-size: 1.2rem;
+            }
+            .player-score {
+                padding: 0.3rem 0.7rem;
+                font-size: 1.2rem; /* Adjusted for smaller screens */
+            }
+        }
+
+        /* Specific styles for game-screen to handle overflow */
+        #game-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            flex-grow: 1; /* Allows it to take available vertical space within container */
+            overflow-y: auto; /* Allows the game area to scroll if canvas is too tall */
+            overflow-x: auto; /* Allows the game area to scroll if canvas is too wide */
+            padding-bottom: 1rem; /* Ensure some space at the bottom when scrolling */
+        }
+
+        /* Tutorial specific styles */
+        #tutorial-modal .modal-content {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .tutorial-slide {
+            display: none; /* Hidden by default */
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            width: 100%;
+        }
+
+        .tutorial-slide.active {
+            display: flex; /* Show active slide */
+        }
+
+        .tutorial-slide h3 {
+            font-size: 2.2rem;
+            font-weight: bold;
+            margin-bottom: 1rem;
+            color: #2a9d8f; /* Teal for tutorial headings */
+        }
+
+        .tutorial-slide p {
+            font-size: 1.4rem;
+            margin-bottom: 1.5rem;
+            line-height: 1.6;
+        }
+
+        .tutorial-navigation {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            margin-top: 2rem;
+        }
+
+        .tutorial-canvas {
+            background-color: #ffffff;
+            border-radius: 0.5rem;
+            box-shadow: inset 0 0 3px rgba(0, 0, 0, 0.1);
+            margin-top: 1rem;
+            border: 1px solid #ccc;
+        }
+
+        /* Tutorial Timer Bar Styles */
+        .tutorial-timer-bar-container {
+            width: 80%; /* Adjusted width for tutorial */
+            height: 10px;
+            background-color: #bbbbbb; /* Light grey for empty bar */
+            border-radius: 5px;
+            overflow: hidden;
+            margin-top: 1rem;
+            position: relative;
+        }
+
+        .tutorial-timer-progress-bar {
+            height: 100%;
+            width: 100%; /* Explicitly set width to 100% for scaling */
+            background-color: #6a994e; /* Muted Green */
+            transition: transform 0.9s linear, background-color 0.3s ease; /* Smooth transition for transform and color */
+            transform-origin: left; /* Scales from left to right */
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        .tutorial-timer-text, .tutorial-time-bank-text {
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin-top: 0.5rem;
+            color: #555555;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container" class="container lg:max-w-screen-lg">
+        <h1 class="text-2xl sm:text-3xl md:text-4xl font-bold mb-8 text-333333">Carrés Connectés</h1>
+
+        <!-- Start Screen (Unified Options) -->
+        <div id="start-screen" class="flex flex-col items-center space-y-6 relative z-10">
+            <h2 class="text-lg sm:text-xl md:text-2xl text-333333 mb-4">Paramètres du Jeu</h2>
+
+            <!-- Game Mode Selection -->
+            <div class="flex flex-col items-center space-y-4">
+                <h3 class="text-md sm:text-lg md:text-xl text-333333">Mode de Jeu :</h3>
+                <div id="game-mode-options" class="flex space-x-4 flex-wrap justify-center gap-2">
+                    <button id="btn-2-players" class="btn btn-primary w-32">2 Joueurs</button>
+                    <button id="btn-vs-ai" class="btn btn-primary w-32">Contre IA</button>
+                </div>
+            </div>
+
+            <!-- Time Mode Selection -->
+            <div class="flex flex-col items-center space-y-4">
+                <h3 class="text-md sm:text-lg md:text-xl text-333333">Gestion du Temps :</h3>
+                <div id="time-mode-options" class="flex space-x-4 flex-wrap justify-center gap-2">
+                    <button id="btn-time-fixed" class="btn btn-secondary w-32">Fixe (10s)</button>
+                    <button id="btn-time-increment" class="btn btn-secondary w-32">Incrément (5s+)</button>
+                </div>
+            </div>
+
+            <!-- End Game Type Selection -->
+            <div class="flex flex-col items-center space-y-4">
+                <h3 class="text-md sm:text-lg md:text-xl text-333333">Fin de Partie :</h3>
+                <div id="end-game-type-options" class="flex space-x-4 flex-wrap justify-center gap-2">
+                    <button id="btn-end-target-score" class="btn btn-secondary w-32">Score Cible</button>
+                    <button id="btn-end-time-race" class="btn btn-secondary w-32">Course au Temps</button>
+                </div>
+            </div>
+
+            <!-- Target Score Selection (conditionally visible) -->
+            <div id="target-score-selection-container" class="flex flex-col items-center space-y-4 hidden">
+                <h3 class="text-md sm:text-lg md:text-xl text-333333">Score Cible :</h3>
+                <div id="target-score-options" class="flex space-x-4 flex-wrap justify-center gap-2">
+                    <button id="btn-score-1" class="btn btn-secondary w-32">1 point</button>
+                    <button id="btn-score-3" class="btn btn-secondary w-32">3 points</button>
+                    <button id="btn-score-5" class="btn btn-secondary w-32">5 points</button>
+                </div>
+            </div>
+
+            <!-- Grid Size Selection -->
+            <div class="flex flex-col items-center space-y-4">
+                <h3 class="text-md sm:text-lg md:text-xl text-333333">Taille de la Grille :</h3>
+                <div id="grid-size-options" class="flex space-x-4 flex-wrap justify-center gap-2">
+                    <button id="btn-grid-small" class="btn btn-secondary w-32">Petite (9x9)</button>
+                    <button id="btn-grid-medium" class="btn btn-secondary w-32">Moyenne (15x11)</button>
+                    <button id="btn-grid-large" class="btn btn-secondary w-32">Grande (19x15)</button>
+                </div>
+            </div>
+
+            <!-- Start Game Button -->
+            <button id="btn-start-game" class="btn btn-primary w-64 mt-8" disabled>Commencer la Partie</button>
+            <!-- Tutorial Button -->
+            <button id="btn-tutorial" class="btn btn-secondary w-64 mt-4">Tutoriel</button>
+        </div>
+
+        <!-- Game Screen -->
+        <div id="game-screen" class="flex flex-col items-center w-full hidden">
+            <!-- New div to contain HUD elements, hidden by default -->
+            <div id="game-hud" class="flex justify-between items-center w-full mb-4 px-4 hidden">
+                <div id="player1-score" class="player-score player-red text-xl">Joueur 1 (Rouge): 0</div>
+                <div class="timer-display">
+                    <span id="global-timer" class="timer-segment">10:00</span>
+                    <span id="turn-timer" class="timer-segment">--:--</span>
+                </div>
+                <div id="player2-score" class="player-score player-blue text-xl">Joueur 2 (Bleu): 0</div>
+            </div>
+            <canvas id="game-canvas" class="hidden"></canvas> <!-- Added hidden class here -->
+            <!-- New Replay button during game -->
+            <button id="btn-replay-in-game" class="btn btn-secondary mt-4 hidden">Rejouer</button>
+        </div>
+
+        <!-- End Game Screen Modal -->
+        <div id="end-game-modal" class="modal hidden">
+            <div class="modal-content">
+                <h2 id="end-game-message" class="text-3xl font-bold mb-4 text-333333"></h2>
+                <p class="text-xl mb-2">Score Final:</p>
+                <p class="text-red-600 text-lg mb-1">Joueur 1 (Rouge): <span id="final-score-red"></span></p>
+                <p class="text-blue-600 text-lg mb-6">Joueur 2 (Bleu): <span id="final-score-blue"></span></p>
+                <button id="btn-replay" class="btn btn-primary">Rejouer</button>
+            </div>
+        </div>
+
+        <!-- Tutorial Modal -->
+        <div id="tutorial-modal" class="modal hidden">
+            <div class="modal-content">
+                <div id="tutorial-slides" class="w-full">
+                    <!-- Slide 0: Introduction -->
+                    <div id="tutorial-slide-0" class="tutorial-slide">
+                        <h3>Bienvenue à Carrés Connectés !</h3>
+                        <p>Le but du jeu est de capturer des carrés sur la grille en plaçant des points.</p>
+                        <p>Vous et votre adversaire placez des points à tour de rôle sur les intersections de la grille.</p>
+                        <p>Un carré est capturé lorsque vous placez le quatrième point qui complète un carré de votre couleur.</p>
+                        <p>Plus le carré est grand, plus vous gagnez de points !</p>
+                        <canvas id="tutorial-canvas-0" class="tutorial-canvas" width="200" height="200"></canvas>
+                    </div>
+
+                    <!-- Slide 1: Placement de points -->
+                    <div id="tutorial-slide-1" class="tutorial-slide">
+                        <h3>Placer un Point</h3>
+                        <p>Pour jouer, cliquez simplement sur une intersection vide de la grille pour placer votre point. Chaque joueur a sa propre couleur.</p>
+                        <canvas id="tutorial-canvas-1" class="tutorial-canvas" width="200" height="200"></canvas>
+                    </div>
+
+                    <!-- Slide 2: Formation de carrés -->
+                    <div id="tutorial-slide-2" class="tutorial-slide">
+                        <h3>Former un Carré</h3>
+                        <p>Un carré est formé lorsque les quatre coins d'un carré sont occupés par des points de VOTRE couleur. Observez comment le carré se forme ici.</p>
+                        <canvas id="tutorial-canvas-2" class="tutorial-canvas" width="200" height="200"></canvas>
+                    </div>
+
+                    <!-- Slide 3: Gestion du Temps (Introduction) -->
+                    <div id="tutorial-slide-3" class="tutorial-slide">
+                        <h3>Gestion du Temps</h3>
+                        <p>Le jeu propose différentes manières de gérer le temps par tour, ajoutant une couche stratégique. Comprendre ces modes est crucial pour adapter votre jeu.</p>
+                    </div>
+
+                    <!-- Slide 4: Mode Temps Fixe -->
+                    <div id="tutorial-slide-4" class="tutorial-slide">
+                        <h3>Mode Temps Fixe</h3>
+                        <p>En mode temps fixe, chaque joueur dispose d'un temps prédéfini (par exemple, 10 secondes) pour son tour. Le chrono se réinitialise à chaque nouveau tour.</p>
+                        <div class="tutorial-timer-bar-container">
+                            <div class="tutorial-timer-progress-bar"></div>
+                        </div>
+                        <p class="tutorial-timer-text"></p>
+                    </div>
+
+                    <!-- Slide 5: Mode Temps Incrément -->
+                    <div id="tutorial-slide-5" class="tutorial-slide">
+                        <h3>Mode Temps Incrément</h3>
+                        <p>En mode incrément, vous commencez avec un temps de base (par exemple, 5 secondes). Si vous terminez votre tour avant la fin du temps, le temps restant est ajouté à votre 'banque de temps' pour les tours futurs, jusqu'à une limite. Si un joueur ne parvient pas à jouer son tour avant la fin du temps, son adversaire remporte un point.</p>
+                        <div class="tutorial-timer-bar-container">
+                            <div class="tutorial-timer-progress-bar"></div>
+                        </div>
+                        <p class="tutorial-timer-text"></p>
+                        <p class="tutorial-time-bank-text"></p>
+                    </div>
+
+                    <!-- Slide 6: Exemple de Blocage -->
+                    <div id="tutorial-slide-6" class="tutorial-slide">
+                        <h3>Bloquer l'Adversaire</h3>
+                        <p>Soyez attentif aux mouvements de votre adversaire ! Si vous voyez qu'il est sur le point de compléter un carré, vous pouvez le bloquer en plaçant votre propre point sur l'intersection manquante.</p>
+                        <canvas id="tutorial-canvas-6" class="tutorial-canvas" width="200" height="200"></canvas>
+                    </div>
+
+                    <!-- Slide 7: Aligner et Compléter (Double Menace 1) -->
+                    <div id="tutorial-slide-7" class="tutorial-slide">
+                        <h3>Aligner et Compléter (Double Menace 1)</h3>
+                        <p>Créez une 'double menace' en plaçant un point qui menace de compléter deux carrés différents. Votre adversaire ne pourra en bloquer qu'un seul, vous laissant l'opportunité de capturer l'autre !</p>
+                        <canvas id="tutorial-canvas-7" class="tutorial-canvas" width="200" height="200"></canvas>
+                    </div>
+
+                </div>
+                <div class="tutorial-navigation">
+                    <button id="tutorial-prev-btn" class="btn btn-secondary" disabled>Précédent</button>
+                    <button id="tutorial-next-btn" class="btn btn-primary">Suivant</button>
+                    <button id="tutorial-skip-btn" class="btn btn-secondary">Passer le Tutoriel</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // Global game variables
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+
+        // UI elements - Moved assignments to global scope for immediate availability
+        const startScreen = document.getElementById('start-screen');
+        const gameScreen = document.getElementById('game-screen');
+        const endGameModal = document.getElementById('end-game-modal');
+
+        const gameModeOptionsDiv = document.getElementById('game-mode-options');
+        const timeModeOptionsDiv = document.getElementById('time-mode-options');
+        const endGameTypeOptionsDiv = document.getElementById('end-game-type-options');
+        const targetScoreSelectionContainer = document.getElementById('target-score-selection-container');
+        const targetScoreOptionsDiv = document.getElementById('target-score-options');
+        const gridSizeOptionsDiv = document.getElementById('grid-size-options');
+
+        const btnStartGame = document.getElementById('btn-start-game');
+        const btnReplayInGame = document.getElementById('btn-replay-in-game');
+        const btnTutorial = document.getElementById('btn-tutorial'); // New tutorial button
+
+        const player1ScoreDisplay = document.getElementById('player1-score');
+        const player2ScoreDisplay = document.getElementById('player2-score');
+        const globalTimerDisplay = document = document.getElementById('global-timer');
+        const turnTimerDisplay = document.getElementById('turn-timer');
+
+        const gameHud = document.getElementById('game-hud');
+
+        const endGameMessage = document.getElementById('end-game-message');
+        const finalScoreRed = document.getElementById('final-score-red');
+        const finalScoreBlue = document.getElementById('final-score-blue');
+
+        // Tutorial UI elements
+        const tutorialModal = document.getElementById('tutorial-modal');
+        const tutorialSlidesContainer = document.getElementById('tutorial-slides');
+        const tutorialPrevBtn = document.getElementById('tutorial-prev-btn');
+        const tutorialNextBtn = document.getElementById('tutorial-next-btn');
+        const tutorialSkipBtn = document.getElementById('tutorial-skip-btn');
+
+        // Tone.js Synths for sound effects
+        let pointSynth;
+        let captureSynth;
+
+        // Array to hold active visual animations
+        let activeAnimations = [];
+
+        // --- Canvas Drawing Functions ---
+        function resizeCanvas() {
+            const gameContainerElement = document.getElementById('game-container');
+            const gameScreenElement = document.getElementById('game-screen');
+
+            // Calculate the maximum available width for the canvas within the game-container
+            const containerComputedStyle = getComputedStyle(gameContainerElement);
+            const containerHorizontalPadding = parseFloat(containerComputedStyle.paddingLeft) + parseFloat(containerComputedStyle.paddingRight);
+            const maxCanvasWidth = gameContainerElement.clientWidth - containerHorizontalPadding;
+
+            // Calculate the maximum available height for the canvas within the game-screen
+            const gameScreenComputedStyle = getComputedStyle(gameScreenElement);
+            let spaceTakenAboveCanvas = 0;
+            const children = gameScreenElement.children;
+            for (let i = 0; i < children.length; i++) {
+                if (children[i].id === 'game-canvas') {
+                    break;
+                }
+                spaceTakenAboveCanvas += children[i].offsetHeight;
+                const childComputedStyle = getComputedStyle(children[i]);
+                spaceTakenAboveCanvas += parseFloat(childComputedStyle.marginTop) + parseFloat(childComputedStyle.marginBottom);
+            }
+
+            // Total vertical space available for content within game-screen (excluding its own padding)
+            const gameScreenContentHeight = gameScreenElement.clientHeight - (parseFloat(gameScreenComputedStyle.paddingTop) + parseFloat(gameScreenComputedStyle.paddingBottom));
+
+            // Max height the canvas can take
+            const maxCanvasHeight = gameScreenContentHeight - spaceTakenAboveCanvas;
+
+            // Debugging logs for resizeCanvas
+            console.log("resizeCanvas: maxCanvasWidth =", maxCanvasWidth, "maxCanvasHeight =", maxCanvasHeight);
+            console.log("resizeCanvas: gridCols =", gridCols, "gridRows =", gridRows);
+
+
+            // Calculate potential cell size based on width and height constraints
+            // We use (gridCols - 1) and (gridRows - 1) because there are (N-1) cells for N points
+            const cellWidthBasedOnCols = maxCanvasWidth / (gridCols - 1);
+            const cellHeightBasedOnRows = maxCanvasHeight / (gridRows - 1);
+
+            // Choose the smaller cell size to ensure the entire grid fits
+            cellSize = Math.max(1, Math.min(cellWidthBasedOnCols, cellHeightBasedOnRows));
+
+            console.log("resizeCanvas: cellSize =", cellSize);
+
+
+            // Set canvas dimensions based on the calculated cellSize
+            canvas.width = cellSize * (gridCols - 1);
+            canvas.height = cellSize * (gridRows - 1);
+
+            // Apply calculated dimensions to CSS to ensure correct rendering
+            canvas.style.width = `${canvas.width}px`;
+            canvas.style.height = `${canvas.height}px`;
+
+            drawGame();
+        }
+
+        function drawGame() {
+            // Only draw if grid dimensions are defined and points array is initialized
+            if (gridRows === undefined || gridCols === undefined || !Array.isArray(points) || points.length === 0 || !Array.isArray(points[0])) {
+                console.log("drawGame skipped: grid not fully initialized.", { gridRows, gridCols, pointsInitialized: Array.isArray(points) && points.length > 0 && Array.isArray(points[0]) });
+                return; // Exit if grid not initialized yet
+            }
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear canvas
+
+            // Set line cap and join for a softer, more drawn look
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+
+            // Draw grid lines
+            ctx.strokeStyle = '#D3D3D3'; // Very light grey for grid lines
+            ctx.lineWidth = 1; // Very thin lines
+            for (let i = 0; i < gridCols; i++) { // Vertical lines: iterate over columns
+                ctx.beginPath();
+                ctx.moveTo(i * cellSize, 0);
+                ctx.lineTo(i * cellSize, canvas.height);
+                ctx.stroke();
+            }
+            for (let i = 0; i < gridRows; i++) { // Horizontal lines: iterate over rows
+                ctx.beginPath();
+                ctx.moveTo(0, i * cellSize);
+                ctx.lineTo(canvas.width, i * cellSize);
+                ctx.stroke();
+            }
+
+            // Highlight captured squares
+            capturedSquares.forEach(square => {
+                const x = square.col * cellSize;
+                const y = square.row * cellSize;
+                const squareSizePx = square.size * cellSize; // Calculate actual pixel size of the square
+
+                ctx.fillStyle = square.player === 1 ? 'rgba(214, 40, 40, 0.4)' : 'rgba(42, 157, 143, 0.4)'; // Muted translucent red/blue
+                ctx.fillRect(x, y, squareSizePx, squareSizePx);
+                ctx.strokeStyle = square.player === 1 ? '#d62828' : '#2a9d8f'; // Muted solid red/blue border
+                ctx.lineWidth = 3;
+                ctx.strokeRect(x, y, squareSizePx, squareSizePx);
+
+                // Optional: Add text indicating square size
+                ctx.fillStyle = 'white';
+                ctx.font = `${cellSize * 0.3}px 'Caveat', cursive`; // Adjust font size based on cell size
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(`${square.size}x${square.size}`, x + squareSizePx / 2, y + squareSizePx / 2);
+            });
+
+            // Draw points
+            for (let r = 0; r < gridRows; r++) { // Iterate over rows
+                for (let c = 0; c < gridCols; c++) { // Iterate over columns
+                    const x = c * cellSize;
+                    const y = r * cellSize;
+                    ctx.beginPath();
+                    ctx.arc(x, y, cellSize * 0.2, 0, Math.PI * 2); // Always draw the arc first
+
+                    if (points[r][c] === 1) {
+                        ctx.fillStyle = '#d62828'; // Player 1 (Red)
+                        ctx.fill();
+                        ctx.strokeStyle = '#333333'; // Thin black outline
+                        ctx.lineWidth = 1;
+                        ctx.stroke();
+                    } else if (points[r][c] === 2) {
+                        ctx.fillStyle = '#2a9d8f'; // Player 2 (Blue)
+                        ctx.fill();
+                        ctx.strokeStyle = '#333333'; // Thin black outline
+                        ctx.lineWidth = 1;
+                        ctx.stroke();
+                    } else { // points[r][c] === 0 (empty)
+                        ctx.strokeStyle = '#333333'; // Darker grey for outline
+                        ctx.lineWidth = 1; // Thin outline
+                        ctx.stroke(); // Only stroke, no fill
+                    }
+                }
+            }
+
+            // Draw hover preview point
+            if (isGameActive && !aiThinking && (gameMode === '2players' || (gameMode === 'vs-ai' && currentPlayer === 1))) {
+                if (hoverRow !== -1 && hoverCol !== -1 && points[hoverRow] && points[hoverRow][hoverCol] === 0) {
+                    const x = hoverCol * cellSize;
+                    const y = hoverRow * cellSize;
+                    ctx.beginPath();
+                    ctx.arc(x, y, cellSize * 0.2, 0, Math.PI * 2); // Match size of other points
+                    ctx.fillStyle = currentPlayer === 1 ? 'rgba(214, 40, 40, 0.5)' : 'rgba(42, 157, 143, 0.5)'; // Translucent current player color
+                    ctx.fill();
+                    ctx.strokeStyle = '#333333'; // Outline for hover
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+                }
+            }
+
+            // Draw active animations
+            const currentTime = performance.now();
+            activeAnimations = activeAnimations.filter(anim => {
+                const elapsedTime = currentTime - anim.startTime;
+                const progress = elapsedTime / anim.duration;
+
+                if (progress >= 1) {
+                    return false; // Remove animation if it's finished
+                }
+
+                ctx.save(); // Save current canvas state
+
+                if (anim.type === 'point-placed') {
+                    const radius = cellSize * 0.2 * (1 + progress * 0.5); // Grow slightly
+                    const opacity = 1 - progress; // Fade out
+                    ctx.fillStyle = `rgba(${anim.player === 1 ? '214, 40, 40' : '42, 157, 143'}, ${opacity})`;
+                    ctx.beginPath();
+                    ctx.arc(anim.x, anim.y, radius, 0, Math.PI * 2);
+                    ctx.fill();
+                } else if (anim.type === 'square-captured') {
+                    const size = anim.size * cellSize * (1 + progress * 0.1); // Grow slightly
+                    const opacity = 0.6 - progress * 0.6; // Fade out
+                    ctx.strokeStyle = `rgba(${anim.player === 1 ? '214, 40, 40' : '42, 157, 143'}, ${opacity})`;
+                    ctx.lineWidth = 5 * (1 - progress); // Fade out line width
+                    ctx.strokeRect(anim.x - (size - anim.size * cellSize) / 2, anim.y - (size - anim.size * cellSize) / 2, size, size);
+                }
+
+                ctx.restore(); // Restore canvas state
+                return true; // Keep animation if it's still active
+            });
+
+            if (activeAnimations.length > 0) {
+                requestAnimationFrame(drawGame); // Request next frame if animations are active
+            }
+        }
+
+        // Game variables
+        let gridRows;
+        let gridCols;
+        let cellSize;
+        let points = [];
+        let playerScores = { 1: 0, 2: 0 };
+        let currentPlayer = 1;
+        let gameMode = null;
+        let timeMode = null;
+        let endGameType = null;
+        let targetScore = 0;
+
+        let gameTimerInterval = null;
+        let turnTimerInterval = null;
+        let gameTimeRemaining = 10 * 60;
+        let turnTimeRemaining;
+        let initialTurnTime = 0;
+
+        let player1TimeBank = 0;
+        let player2TimeBank = 0;
+        const MAX_TIME_BANK = 20;
+
+        let capturedSquares = [];
+
+        let isGameActive = false;
+        let aiThinking = false;
+        const aiDelay = 800;
+
+        let lastTurnPlayer1CapturedSquare = false;
+        let lastTurnPlayer2CapturedSquare = false;
+        const CONSECUTIVE_CAPTURE_BONUS = 1;
+
+        let hoverRow = -1;
+        let hoverCol = -1;
+
+        // State for selected options
+        let selectedGameMode = null;
+        let selectedTimeMode = null;
+        let selectedEndGameType = null;
+        let selectedTargetScore = null;
+        let selectedGridSize = null;
+
+
+        // --- Helper for option selection styling ---
+        function deselectOptions(containerId) {
+            const container = document.getElementById(containerId);
+            if (container) {
+                Array.from(container.children).forEach(button => {
+                    button.classList.remove('selected-option');
+                });
+            }
+        }
+
+        function selectOption(button, value, type) {
+            deselectOptions(button.parentElement.id); // Deselect others in the same group
+            button.classList.add('selected-option'); // Select this one
+
+            switch (type) {
+                case 'gameMode':
+                    selectedGameMode = value;
+                    break;
+                case 'timeMode':
+                    selectedTimeMode = value;
+                    break;
+                case 'endGameType':
+                    selectedEndGameType = value;
+                    // Reset target score if end game type changes from target_score
+                    if (value !== 'target_score') {
+                        selectedTargetScore = null;
+                        deselectOptions('target-score-options');
+                        targetScoreSelectionContainer.classList.add('hidden');
+                    } else {
+                        targetScoreSelectionContainer.classList.remove('hidden');
+                    }
+                    break;
+                case 'targetScore':
+                    selectedTargetScore = value;
+                    break;
+                case 'gridSize':
+                    selectedGridSize = value;
+                    break;
+            }
+            checkSelectionsAndEnableStartButton();
+        }
+
+        function checkSelectionsAndEnableStartButton() {
+            let allRequiredSelected = false;
+
+            if (selectedGameMode && selectedTimeMode && selectedEndGameType && selectedGridSize) {
+                if (selectedEndGameType === 'target_score') {
+                    if (selectedTargetScore) {
+                        allRequiredSelected = true;
+                    }
+                } else {
+                    allRequiredSelected = true;
+                }
+            }
+
+            if (allRequiredSelected) {
+                btnStartGame.disabled = false;
+            } else {
+                btnStartGame.disabled = true;
+            }
+        }
+
+        // --- Event Listeners ---
+        document.getElementById('btn-2-players').addEventListener('click', (e) => selectOption(e.target, '2players', 'gameMode'));
+        document.getElementById('btn-vs-ai').addEventListener('click', (e) => selectOption(e.target, 'vs-ai', 'gameMode'));
+
+        document.getElementById('btn-time-fixed').addEventListener('click', (e) => selectOption(e.target, 'fixed', 'timeMode'));
+        document.getElementById('btn-time-increment').addEventListener('click', (e) => selectOption(e.target, 'increment', 'timeMode'));
+
+        document.getElementById('btn-end-target-score').addEventListener('click', (e) => selectOption(e.target, 'target_score', 'endGameType'));
+        document.getElementById('btn-end-time-race').addEventListener('click', (e) => selectOption(e.target, 'time_race', 'endGameType'));
+
+        document.getElementById('btn-score-1').addEventListener('click', (e) => selectOption(e.target, 1, 'targetScore'));
+        document.getElementById('btn-score-3').addEventListener('click', (e) => selectOption(e.target, 3, 'targetScore'));
+        document.getElementById('btn-score-5').addEventListener('click', (e) => selectOption(e.target, 5, 'targetScore'));
+
+        document.getElementById('btn-grid-small').addEventListener('click', (e) => selectOption(e.target, { rows: 9, cols: 9 }, 'gridSize'));
+        document.getElementById('btn-grid-medium').addEventListener('click', (e) => selectOption(e.target, { rows: 15, cols: 11 }, 'gridSize'));
+        document.getElementById('btn-grid-large').addEventListener('click', (e) => selectOption(e.target, { rows: 19, cols: 15 }, 'gridSize'));
+
+        btnStartGame.addEventListener('click', startGame);
+        document.getElementById('btn-replay').addEventListener('click', initGame); // Replay from end game modal
+        document.getElementById('btn-replay-in-game').addEventListener('click', initGame); // Replay from in-game button
+        btnTutorial.addEventListener('click', openTutorial); // New event listener for tutorial button
+
+        canvas.addEventListener('click', handleCanvasClick);
+        canvas.addEventListener('mousemove', handleCanvasMouseMove);
+        canvas.addEventListener('mouseleave', handleCanvasMouseLeave);
+
+        // --- Game Initialization and Setup ---
+        function initGame() {
+            console.log("initGame called. Resetting game state and UI...");
+            // Reset game state
+            points = [];
+            playerScores = { 1: 0, 2: 0 };
+            currentPlayer = 1;
+            capturedSquares = [];
+            isGameActive = false;
+            aiThinking = false;
+            gameTimeRemaining = 10 * 60;
+            player1TimeBank = 0;
+            player2TimeBank = 0;
+            initialTurnTime = 0;
+
+            lastTurnPlayer1CapturedSquare = false;
+            lastTurnPlayer2CapturedSquare = false;
+
+            hoverRow = -1;
+            hoverCol = -1;
+            activeAnimations = []; // Clear animations on init
+
+            // Reset selected options
+            selectedGameMode = null;
+            selectedTimeMode = null;
+            selectedEndGameType = null;
+            selectedTargetScore = null;
+            selectedGridSize = null;
+
+            // Remove any existing resize listener before re-adding it in startGame
+            window.removeEventListener('resize', resizeCanvas);
+
+            // Show start screen and hide game screen/modal
+            startScreen.classList.remove('hidden');
+            gameScreen.classList.add('hidden'); // Hide the entire game screen area
+            gameHud.classList.add('hidden'); // Explicitly hide HUD elements
+            canvas.classList.add('hidden'); // Explicitly hide canvas
+            endGameModal.classList.add('hidden');
+            btnReplayInGame.classList.add('hidden');
+
+            // Deselect all option buttons
+            deselectOptions('game-mode-options');
+            deselectOptions('time-mode-options');
+            deselectOptions('end-game-type-options');
+            deselectOptions('target-score-options');
+            deselectOptions('grid-size-options');
+
+            // Hide target score container initially
+            targetScoreSelectionContainer.classList.add('hidden');
+
+            // Disable start game button
+            btnStartGame.disabled = true;
+
+            updateUI(); // Reset UI elements like scores
+            console.log("initGame: startScreen display:", getComputedStyle(startScreen).display);
+            console.log("initGame: gameScreen display:", getComputedStyle(gameScreen).display);
+            console.log("initGame: gameHud display:", getComputedStyle(gameHud).display);
+            console.log("initGame: canvas display:", getComputedStyle(canvas).display);
+        }
+
+        function startGame() {
+            // Assign selected values to game variables
+            gameMode = selectedGameMode;
+            timeMode = selectedTimeMode;
+            endGameType = selectedEndGameType;
+            targetScore = selectedTargetScore;
+            gridRows = selectedGridSize.rows;
+            gridCols = selectedGridSize.cols;
+
+            isGameActive = true;
+            points = Array.from({ length: gridRows }, () => Array(gridCols).fill(0));
+
+            startScreen.classList.add('hidden'); // Hide start screen
+            gameScreen.classList.remove('hidden'); // Show game screen (canvas area)
+            gameHud.classList.remove('hidden'); // Show HUD elements
+            canvas.classList.remove('hidden'); // Show canvas
+
+            // Initialize Tone.js synths
+            Tone.start(); // Start audio context
+            pointSynth = new Tone.Synth({
+                oscillator: { type: "sine" },
+                envelope: { attack: 0.01, decay: 0.1, sustain: 0.0, release: 0.1 }
+            }).toDestination();
+
+            captureSynth = new Tone.PolySynth(Tone.Synth, {
+                oscillator: { type: "triangle" },
+                envelope: { attack: 0.02, decay: 0.2, sustain: 0.0, release: 0.2 }
+            }).toDestination();
+
+
+            resizeCanvas(); // Ensure canvas is sized correctly
+            window.addEventListener('resize', resizeCanvas); // Add resize listener
+
+            btnReplayInGame.classList.remove('hidden'); // Show in-game replay button
+
+            if (endGameType === 'time_race') {
+                startGlobalTimer();
+            } else {
+                clearInterval(gameTimerInterval);
+                globalTimerDisplay.textContent = '--:--';
+            }
+
+            startTurnTimer();
+            updateUI();
+            drawGame(); // Initial draw, and subsequent draws will be handled by requestAnimationFrame for animations
+            console.log("startGame: startScreen display:", getComputedStyle(startScreen).display);
+            console.log("startGame: gameScreen display:", getComputedStyle(gameScreen).display);
+            console.log("startGame: gameHud display:", getComputedStyle(gameHud).display);
+            console.log("startGame: canvas display:", getComputedStyle(canvas).display);
+        }
+
+        // --- Game Logic ---
+        const switchPlayer = () => {
+            currentPlayer = currentPlayer === 1 ? 2 : 1;
+        };
+
+        function handleCanvasClick(event) {
+            if (!isGameActive || aiThinking || (gameMode === 'vs-ai' && currentPlayer === 2)) {
+                return;
+            }
+
+            const rect = canvas.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+
+            const col = Math.round(x / cellSize);
+            const row = Math.round(y / cellSize);
+
+            if (row >= 0 && row < gridRows && col >= 0 && col < gridCols && points[row] && points[row][col] === 0) {
+                placePoint(row, col);
+                hoverRow = -1;
+                hoverCol = -1;
+                // No need to call drawGame directly here, requestAnimationFrame will handle it
+            }
+        }
+
+        function handleCanvasMouseMove(event) {
+            if (!isGameActive || aiThinking || (gameMode === 'vs-ai' && currentPlayer === 2)) {
+                hoverRow = -1;
+                hoverCol = -1;
+                drawGame();
+                return;
+            }
+
+            const rect = canvas.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+
+            const newCol = Math.round(x / cellSize);
+            const newRow = Math.round(y / cellSize);
+
+            if (newRow !== hoverRow || newCol !== hoverCol) {
+                hoverRow = newRow;
+                hoverCol = newCol;
+                drawGame();
+            }
+        }
+
+        function handleCanvasMouseLeave() {
+            hoverRow = -1;
+            hoverCol = -1;
+            drawGame();
+        }
+
+        function placePoint(row, col) {
+            points[row][col] = currentPlayer;
+            
+            // Play point placement sound
+            if (pointSynth) {
+                pointSynth.triggerAttackRelease("C4", "8n");
+            }
+
+            // Add point placement animation
+            activeAnimations.push({
+                type: 'point-placed',
+                x: col * cellSize,
+                y: row * cellSize,
+                player: currentPlayer,
+                startTime: performance.now(),
+                duration: 300 // ms
+            });
+            requestAnimationFrame(drawGame); // Request a new frame for animation
+
+            const squaresFormedThisTurn = checkAndCaptureSquares(row, col);
+
+            if (squaresFormedThisTurn) {
+                // Play capture sound
+                if (captureSynth) {
+                    captureSynth.triggerAttackRelease(["C5", "E5", "G5"], "4n");
+                }
+
+                // Add square capture animation for each captured square
+                capturedSquares.filter(s => s.player === currentPlayer).forEach(square => {
+                    activeAnimations.push({
+                        type: 'square-captured',
+                        x: square.col * cellSize,
+                        y: square.row * cellSize,
+                        size: square.size,
+                        player: square.player,
+                        startTime: performance.now(),
+                        duration: 500 // ms
+                    });
+                });
+                requestAnimationFrame(drawGame); // Request a new frame for animation
+            }
+
+
+            if (currentPlayer === 1) {
+                if (squaresFormedThisTurn && lastTurnPlayer1CapturedSquare) {
+                    playerScores[1] += CONSECUTIVE_CAPTURE_BONUS;
+                }
+                lastTurnPlayer1CapturedSquare = squaresFormedThisTurn;
+            } else {
+                if (squaresFormedThisTurn && lastTurnPlayer2CapturedSquare) {
+                    playerScores[2] += CONSECUTIVE_CAPTURE_BONUS;
+                }
+                lastTurnPlayer2CapturedSquare = squaresFormedThisTurn;
+            }
+
+            const gameOverResult = isGameOver();
+            if (gameOverResult) {
+                endGame(gameOverResult);
+                return;
+            }
+
+            switchPlayer();
+            startTurnTimer();
+            updateUI();
+
+            if (gameMode === 'vs-ai' && currentPlayer === 2 && isGameActive) {
+                aiThinking = true;
+                setTimeout(makeAIMove, aiDelay);
+            }
+        }
+
+        function checkAndCaptureSquares(lastRow, lastCol) {
+            let squaresFormedThisTurn = false;
+            const player = points[lastRow][lastCol];
+
+            const checkSquare = (r, c, size) => {
+                for (let i = 0; i <= size; i++) {
+                    for (let j = 0; j <= size; j++) {
+                        if (r + i >= gridRows || c + j >= gridCols || !points[r + i] || points[r + i][c + j] !== player) {
+                            return false;
+                        }
+                    }
+                }
+                return !capturedSquares.some(s => s.row === r && s.col === c && s.size === size);
+            };
+
+            for (let size = 3; size >= 1; size--) {
+                for (let rOffset = 0; rOffset <= size; rOffset++) {
+                    for (let cOffset = 0; cOffset <= size; cOffset++) {
+                        const r = lastRow - rOffset;
+                        const c = lastCol - cOffset;
+
+                        if (r >= 0 && r + size < gridRows && c >= 0 && c + size < gridCols) {
+                            if (checkSquare(r, c, size)) {
+                                capturedSquares.push({ row: r, col: c, player: player, size: size });
+                                let pointsAwarded = 0;
+                                if (size === 1) pointsAwarded = 1;
+                                else if (size === 2) pointsAwarded = 3;
+                                else if (size === 3) pointsAwarded = 6;
+
+                                playerScores[player] += pointsAwarded;
+                                squaresFormedThisTurn = true;
+                            }
+                        }
+                    }
+                }
+            }
+            return squaresFormedThisTurn;
+        }
+
+        function isGameOver() {
+            if (endGameType === 'target_score') {
+                if (playerScores[1] >= targetScore) {
+                    return { winner: 1, reason: 'score' };
+                }
+                if (playerScores[2] >= targetScore) {
+                    return { winner: 2, reason: 'score' };
+                }
+            }
+
+            if (endGameType === 'time_race' && gameTimeRemaining <= 0) {
+                if (playerScores[1] > playerScores[2]) {
+                    return { winner: 1, reason: 'time' };
+                } else if (playerScores[2] > playerScores[1]) {
+                    return { winner: 2, reason: 'time' };
+                } else {
+                    return { winner: 0, reason: 'time_draw' };
+                }
+            }
+
+            let allPointsFilled = true;
+            for (let r = 0; r < gridRows; r++) {
+                for (let c = 0; c < gridCols; c++) {
+                    if (points[r][c] === 0) {
+                        allPointsFilled = false;
+                        break;
+                    }
+                }
+                if (!allPointsFilled) break;
+            }
+
+            if (allPointsFilled && endGameType === null) { // Default: fill grid
+                 if (playerScores[1] > playerScores[2]) {
+                    return { winner: 1, reason: 'grid_full' };
+                } else if (playerScores[2] > playerScores[1]) {
+                    return { winner: 2, reason: 'grid_full' };
+                } else {
+                    return { winner: 0, reason: 'grid_full_draw' };
+                }
+            }
+
+            return false;
+        }
+
+        function endGame(result) {
+            isGameActive = false;
+            clearInterval(gameTimerInterval);
+            clearInterval(turnTimerInterval);
+
+            let message = '';
+            if (result.reason === 'score') {
+                message = `Joueur ${result.winner} gagne en atteignant le score cible !`;
+            } else if (result.reason === 'time') {
+                message = `Temps écoulé ! Joueur ${result.winner} gagne !`;
+            } else if (result.reason === 'time_draw') {
+                message = 'Temps écoulé ! Match nul !';
+            } else if (result.reason === 'grid_full') {
+                message = `Grille pleine ! Joueur ${result.winner} gagne !`;
+            } else if (result.reason === 'grid_full_draw') {
+                message = 'Grille pleine ! Match nul !';
+            } else {
+                message = 'Partie terminée !';
+            }
+
+            endGameMessage.textContent = message;
+            finalScoreRed.textContent = playerScores[1];
+            finalScoreBlue.textContent = playerScores[2];
+            endGameModal.classList.remove('hidden');
+        }
+
+        // --- Timers ---
+        function formatTime(seconds) {
+            const minutes = Math.floor(seconds / 60);
+            const remainingSeconds = seconds % 60;
+            return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+        }
+
+        function startGlobalTimer() {
+            clearInterval(gameTimerInterval);
+            gameTimerInterval = setInterval(() => {
+                if (isGameActive) {
+                    gameTimeRemaining--;
+                    globalTimerDisplay.textContent = formatTime(gameTimeRemaining);
+                    const gameOverResult = isGameOver();
+                    if (gameOverResult) {
+                        endGame(gameOverResult);
+                    }
+                }
+            }, 1000);
+        }
+
+        function startTurnTimer() {
+            clearInterval(turnTimerInterval);
+
+            const previousPlayer = currentPlayer === 1 ? 2 : 1;
+            if (timeMode === 'increment' && turnTimeRemaining > 0) {
+                if (previousPlayer === 1) {
+                    player1TimeBank = Math.min(MAX_TIME_BANK, player1TimeBank + turnTimeRemaining);
+                } else {
+                    player2TimeBank = Math.min(MAX_TIME_BANK, player2TimeBank + turnTimeRemaining);
+                }
+            }
+
+            if (timeMode === 'fixed') {
+                turnTimeRemaining = 10;
+                initialTurnTime = 10;
+            } else if (timeMode === 'increment') {
+                let baseTime = 5;
+                if (currentPlayer === 1) {
+                    turnTimeRemaining = Math.min(MAX_TIME_BANK, baseTime + player1TimeBank);
+                    player1TimeBank = 0;
+                } else {
+                    turnTimeRemaining = Math.min(MAX_TIME_BANK, baseTime + player2TimeBank);
+                    player2TimeBank = 0;
+                }
+                initialTurnTime = Math.max(1, turnTimeRemaining); // Ensure initialTurnTime is at least 1
+            }
+            console.log(`startTurnTimer: initialTurnTime = ${initialTurnTime}, turnTimeRemaining = ${turnTimeRemaining}`);
+
+            updateTurnTimerDisplay();
+
+            turnTimerInterval = setInterval(() => {
+                if (isGameActive) {
+                    turnTimeRemaining--;
+                    updateTurnTimerDisplay();
+                    if (turnTimeRemaining <= 0) {
+                        clearInterval(turnTimerInterval);
+                        if (timeMode === 'increment') {
+                            const opponent = currentPlayer === 1 ? 2 : 1;
+                            playerScores[opponent]++; // Opponent gains a point if time runs out
+                            updateUI();
+                        }
+                        switchPlayer();
+                        startTurnTimer();
+                        updateUI();
+                        if (gameMode === 'vs-ai' && currentPlayer === 2 && isGameActive) {
+                            aiThinking = true;
+                            setTimeout(makeAIMove, aiDelay);
+                        }
+                    }
+                }
+            }, 1000);
+        }
+
+        function updateTurnTimerDisplay() {
+            turnTimerDisplay.textContent = formatTime(turnTimeRemaining);
+            console.log(`updateTurnTimerDisplay: turnTimeRemaining = ${turnTimeRemaining}, initialTurnTime = ${initialTurnTime}`);
+        }
+
+        // --- AI Logic ---
+        function makeAIMove() {
+            let bestMove = null;
+            let bestScore = -Infinity;
+
+            const availableMoves = [];
+            for (let r = 0; r < gridRows; r++) {
+                for (let c = 0; c < gridCols; c++) {
+                    if (points[r][c] === 0) {
+                        availableMoves.push({ r, c });
+                    }
+                }
+            }
+
+            if (availableMoves.length === 0) {
+                aiThinking = false;
+                return;
+            }
+
+            // 1. Prioritize forming own squares
+            for (const move of availableMoves) {
+                points[move.r][move.c] = currentPlayer;
+                let squaresFormed = 0;
+
+                for (let size = 1; size <= 3; size++) {
+                    const r = move.r;
+                    const c = move.c;
+                    const player = currentPlayer;
+
+                    for (let rOffset = 0; rOffset <= size; rOffset++) {
+                        for (let cOffset = 0; cOffset <= size; cOffset++) {
+                            const squareR = r - rOffset;
+                            const squareC = c - cOffset;
+
+                            if (squareR >= 0 && squareR + size < gridRows && squareC >= 0 && squareC + size < gridCols) {
+                                let allPointsMatch = true;
+                                for (let i = 0; i <= size; i++) {
+                                    for (let j = 0; j <= size; j++) {
+                                        if (!points[squareR + i] || points[squareR + i][squareC + j] !== player) {
+                                            allPointsMatch = false;
+                                            break;
+                                        }
+                                    }
+                                    if (!allPointsMatch) break;
+                                }
+
+                                if (allPointsMatch && !isSquareCapturedInTemp(squareR, squareC, size, capturedSquares)) {
+                                    squaresFormed++;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (squaresFormed > 0) {
+                    bestMove = move;
+                    aiThinking = false;
+                    placePoint(bestMove.r, bestMove.c);
+                    return;
+                }
+                points[move.r][move.c] = 0; // Revert simulation
+            }
+
+            // 2. Prioritize blocking opponent's squares
+            const opponent = currentPlayer === 1 ? 2 : 1;
+            for (const move of availableMoves) {
+                points[move.r][move.c] = opponent; // Simulate opponent placing the point
+                let opponentSquaresFormed = 0;
+
+                for (let size = 1; size <= 3; size++) {
+                    const r = move.r;
+                    const c = move.c;
+                    const player = opponent;
+
+                    for (let rOffset = 0; rOffset <= size; rOffset++) {
+                        for (let cOffset = 0; cOffset <= size; cOffset++) {
+                            const squareR = r - rOffset;
+                            const squareC = c - cOffset;
+
+                            if (squareR >= 0 && squareR + size < gridRows && squareC >= 0 && squareC + size < gridCols) {
+                                let allPointsMatch = true;
+                                for (let i = 0; i <= size; i++) {
+                                    for (let j = 0; j <= size; j++) {
+                                        if (!points[squareR + i] || points[squareR + i][squareC + j] !== player) {
+                                            allPointsMatch = false;
+                                            break;
+                                        }
+                                    }
+                                    if (!allPointsMatch) break;
+                                }
+
+                                if (allPointsMatch && !isSquareCapturedInTemp(squareR, squareC, size, capturedSquares)) {
+                                    opponentSquaresFormed++;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (opponentSquaresFormed > 0) {
+                    bestMove = move;
+                    points[move.r][move.c] = 0; // Revert simulation
+                    aiThinking = false;
+                    placePoint(bestMove.r, bestMove.c);
+                    return;
+                }
+                points[move.r][move.c] = 0; // Revert simulation
+            }
+
+            // 3. Avoid giving immediate squares to the opponent
+            let safeMoves = [];
+            for (const move of availableMoves) {
+                points[move.r][move.c] = currentPlayer; // Simulate AI placing the point
+                let givesOpponentSquare = false;
+
+                for (let r_opp = 0; r_opp < gridRows; r_opp++) {
+                    for (let c_opp = 0; c_opp < gridCols; c_opp++) {
+                        if (points[r_opp][c_opp] === 0) {
+                            points[r_opp][c_opp] = opponent; // Simulate opponent's move
+                            for (let size = 1; size <= 3; size++) {
+                                const sqR = r_opp;
+                                const sqC = c_opp;
+                                const player = opponent;
+
+                                for (let rOffset = 0; rOffset <= size; rOffset++) {
+                                    for (let cOffset = 0; cOffset <= size; cOffset++) {
+                                        const potentialSquareR = sqR - rOffset;
+                                        const potentialSquareC = sqC - cOffset;
+
+                                        if (potentialSquareR >= 0 && potentialSquareR + size < gridRows && potentialSquareC >= 0 && potentialSquareC + size < gridCols) {
+                                            let allPointsMatch = true;
+                                            for (let i = 0; i <= size; i++) {
+                                                for (let j = 0; j <= size; j++) {
+                                                    if (!points[potentialSquareR + i] || points[potentialSquareR + i][potentialSquareC + j] !== player) {
+                                                        allPointsMatch = false;
+                                                        break;
+                                                    }
+                                                }
+                                                if (!allPointsMatch) break;
+                                            }
+
+                                            if (allPointsMatch && !isSquareCapturedInTemp(potentialSquareR, potentialSquareC, size, capturedSquares)) {
+                                                givesOpponentSquare = true;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    if (givesOpponentSquare) break;
+                                }
+                                if (givesOpponentSquare) break;
+                            }
+                            points[r_opp][c_opp] = 0; // Revert opponent's simulated move
+                        }
+                        if (givesOpponentSquare) break;
+                    }
+                    if (givesOpponentSquare) break;
+                }
+
+                if (!givesOpponentSquare) {
+                    safeMoves.push(move);
+                }
+                points[move.r][move.c] = 0; // Revert AI's simulated move
+            }
+
+            if (safeMoves.length > 0) {
+                bestMove = safeMoves[Math.floor(Math.random() * safeMoves.length)];
+                aiThinking = false;
+                placePoint(bestMove.r, bestMove.c);
+                return;
+            }
+
+            // 4. Random move as last resort
+            bestMove = availableMoves[Math.floor(Math.random() * availableMoves.length)];
+            aiThinking = false;
+            placePoint(bestMove.r, bestMove.c);
+        }
+
+        function isSquareCapturedInTemp(row, col, size, tempCapturedSquares) {
+            return tempCapturedSquares.some(s => s.row === row && s.col === col && s.size === size);
+        }
+
+        // --- UI Updates ---
+        function updateUI() {
+            player1ScoreDisplay.textContent = `Joueur 1 (Rouge): ${playerScores[1]}`;
+            player2ScoreDisplay.textContent = `Joueur 2 (Bleu): ${playerScores[2]}`;
+
+            // Remove active class from both players first
+            player1ScoreDisplay.classList.remove('player-active');
+            player2ScoreDisplay.classList.remove('player-active');
+
+            // Add active class to the current player
+            if (currentPlayer === 1) {
+                player1ScoreDisplay.classList.add('player-active');
+            } else {
+                player2ScoreDisplay.classList.add('player-active');
+            }
+        }
+
+        // --- Tutorial Logic ---
+        let currentTutorialSlideIndex = 0;
+        let tutorialAnimationInterval = null; // Declare globally to clear on slide change
+
+        const tutorialSlidesData = [
+            {
+                id: "intro",
+                title: "Bienvenue à Carrés Connectés !",
+                text: "Le but du jeu est de capturer des carrés sur la grille en plaçant des points. Vous et votre adversaire placez des points à tour de rôle sur les intersections de la grille. Un carré est capturé lorsque vous placez le quatrième point qui complète un carré de votre couleur. Plus le carré est grand, plus vous gagnez de points !",
+                elementType: "canvas", // Explicitly state element type
+                gridSize: 4, // Define grid size for this animation
+                animationSteps: [
+                    // Step 0: Empty grid
+                    { points: Array.from({ length: 4 }, () => Array(4).fill(0)), highlightPoint: null, highlightSquare: null },
+                    // Step 1: Player 1 places a point
+                    { points: [
+                        [0,0,0,0],
+                        [0,1,0,0],
+                        [0,0,0,0],
+                        [0,0,0,0]
+                    ], highlightPoint: {row:1, col:1, player:1}, highlightSquare: null },
+                    // Step 2: Player 1 places another point
+                    { points: [
+                        [0,0,0,0],
+                        [0,1,1,0],
+                        [0,0,0,0],
+                        [0,0,0,0]
+                    ], highlightPoint: {row:1, col:2, player:1}, highlightSquare: null },
+                    // Step 3: Player 1 places a third point
+                    { points: [
+                        [0,0,0,0],
+                        [0,1,1,0],
+                        [0,1,0,0],
+                        [0,0,0,0]
+                    ], highlightPoint: {row:2, col:1, player:1}, highlightSquare: null },
+                    // Step 4: Player 1 places the fourth point, forming a square
+                    { points: [
+                        [0,0,0,0],
+                        [0,1,1,0],
+                        [0,1,1,0],
+                        [0,0,0,0]
+                    ], highlightPoint: {row:2, col:2, player:1}, highlightSquare: {row:1, col:1, size:1, player:1} }
+                ]
+            },
+            {
+                id: "place-point",
+                title: "Placer un Point",
+                text: "Pour jouer, cliquez simplement sur une intersection vide de la grille pour placer votre point. Chaque joueur a sa propre couleur.",
+                elementType: "canvas",
+                gridSize: 4,
+                animationSteps: [
+                    { points: Array.from({ length: 4 }, () => Array(4).fill(0)), highlightPoint: null, highlightSquare: null },
+                    { points: [
+                        [0,0,0,0],
+                        [0,1,0,0],
+                        [0,0,0,0],
+                        [0,0,0,0]
+                    ], highlightPoint: {row:1, col:1, player:1}, highlightSquare: null }
+                ]
+            },
+            {
+                id: "form-square",
+                title: "Former un Carré",
+                text: "Un carré est formé lorsque les quatre coins d'un carré sont occupés par des points de VOTRE couleur. Observez comment le carré se forme ici.",
+                elementType: "canvas",
+                gridSize: 4,
+                animationSteps: [
+                    { points: Array.from({ length: 4 }, () => Array(4).fill(0)), highlightPoint: null, highlightSquare: null },
+                    { points: [
+                        [0,0,0,0],
+                        [0,1,0,0], // Point 1
+                        [0,0,0,0],
+                        [0,0,0,0]
+                    ], highlightPoint: {row:1, col:1, player:1}, highlightSquare: null },
+                    { points: [
+                        [0,0,0,0],
+                        [0,1,1,0], // Point 1, Point 2
+                        [0,0,0,0],
+                        [0,0,0,0]
+                    ], highlightPoint: {row:1, col:2, player:1}, highlightSquare: null },
+                    { points: [
+                        [0,0,0,0],
+                        [0,1,1,0],
+                        [0,1,0,0], // Point 3
+                        [0,0,0,0]
+                    ], highlightPoint: {row:2, col:1, player:1}, highlightSquare: null },
+                    { points: [
+                        [0,0,0,0],
+                        [0,1,1,0],
+                        [0,1,1,0], // Point 4 completes the square
+                        [0,0,0,0]
+                    ], highlightPoint: {row:2, col:2, player:1}, highlightSquare: {row:1, col:1, size:1, player:1} } // Highlight the formed 1x1 square
+                ]
+            },
+            {
+                id: "time-management-intro",
+                title: "Gestion du Temps",
+                text: "Le jeu propose différentes manières de gérer le temps par tour, ajoutant une couche stratégique. Comprendre ces modes est crucial pour adapter votre jeu.",
+                elementType: "none" // No specific element, just text
+            },
+            {
+                id: "fixed-time",
+                title: "Mode Temps Fixe",
+                text: "En mode temps fixe, chaque joueur dispose d'un temps prédéfini (par exemple, 10 secondes) pour son tour. Le chrono se réinitialise à chaque nouveau tour.",
+                elementType: "timer", // New element type for timer bar
+                animationSteps: [
+                    { time: 10, initialTime: 10, player: 1, timeBank: 0 },
+                    { time: 8, initialTime: 10, player: 1, timeBank: 0 },
+                    { time: 6, initialTime: 10, player: 1, timeBank: 0 },
+                    { time: 4, initialTime: 10, player: 1, timeBank: 0 },
+                    { time: 2, initialTime: 10, player: 1, timeBank: 0 },
+                    { time: 0, initialTime: 10, player: 1, timeBank: 0 }
+                ]
+            },
+            {
+                id: "increment-time",
+                title: "Mode Temps Incrément",
+                text: "En mode incrément, vous commencez avec un temps de base (par exemple, 5 secondes). Si vous terminez votre tour avant la fin du temps, le temps restant est ajouté à votre 'banque de temps' pour les tours futurs, jusqu'à une limite. Si un joueur ne parvient pas à jouer son tour avant la fin du temps, son adversaire remporte un point.",
+                elementType: "timer",
+                animationSteps: [
+                    { time: 5, initialTime: 5, timeBank: 0, player: 1, description: "Joueur 1 commence son tour avec 5s" }, // Start of turn 1
+                    { time: 3, initialTime: 5, timeBank: 0, player: 1, description: "Joueur 1 joue rapidement, il reste 3s" }, // Player 1 plays fast
+                    { time: 7, initialTime: 7, timeBank: 3, player: 2, description: "Joueur 2 commence avec 5s + 3s de bonus" }, // Player 2 turn, gets 5 + 2 from P1
+                    { time: 4, initialTime: 7, timeBank: 3, player: 2, description: "Joueur 2 joue rapidement, il reste 4s" }, // Player 2 plays fast
+                    { time: 9, initialTime: 9, timeBank: 4, player: 1, description: "Joueur 1 commence avec 5s + 4s de bonus" } // Player 1 turn, gets 5 + 3 from P2
+                ]
+            },
+            {
+                id: "blocking-example",
+                title: "Bloquer l'Adversaire",
+                text: "Soyez attentif aux mouvements de votre adversaire ! Si vous voyez qu'il est sur le point de compléter un carré, vous pouvez le bloquer en plaçant votre propre point sur l'intersection manquante.",
+                elementType: "canvas",
+                gridSize: 4,
+                animationSteps: [
+                    // Initial setup: Player 1 has 3 points, about to form a square
+                    { points: [
+                        [0,0,0,0],
+                        [0,1,1,0],
+                        [0,1,0,0],
+                        [0,0,0,0]
+                    ], highlightPoint: {row:2, col:2, player:1}, highlightSquare: null, message: "Le joueur rouge est sur le point de former un carré ici !" },
+                    // Player 2 blocks
+                    { points: [
+                        [0,0,0,0],
+                        [0,1,1,0],
+                        [0,1,2,0], // Player 2 blocks
+                        [0,0,0,0]
+                    ], highlightPoint: {row:2, col:2, player:2}, highlightSquare: null, message: "Le joueur bleu bloque le carré !" }
+                ]
+            },
+            {
+                id: "align-and-complete",
+                title: "Aligner et Compléter (Double Menace 1)",
+                text: "Créez une 'double menace' en plaçant un point qui menace de compléter deux carrés différents. Votre adversaire ne pourra en bloquer qu'un seul, vous laissant l'opportunité de capturer l'autre !",
+                elementType: "canvas",
+                gridSize: 5, // Using 5x5 grid to match user's image context
+                animationSteps: [
+                    // Step 1: Initial state - Red has 3 points aligned horizontally
+                    {
+                        points: [
+                            [0,0,0,0,0],
+                            [0,1,1,1,0], // Red points at (1,1), (1,2), (1,3)
+                            [0,0,0,0,0],
+                            [0,0,0,0,0],
+                            [0,0,0,0,0]
+                        ],
+                        highlightPoint: null,
+                        highlightSquare: null,
+                        highlightPotentialSquare: null,
+                        highlightPotentialSquare2: null,
+                        message: "Le joueur rouge a aligné trois points."
+                    },
+                    // Step 2: Red places the "middle" point (2,2)
+                    {
+                        points: [
+                            [0,0,0,0,0],
+                            [0,1,1,1,0],
+                            [0,0,1,0,0], // Red point at (2,2)
+                            [0,0,0,0,0],
+                            [0,0,0,0,0]
+                        ],
+                        highlightPoint: {row:2, col:2, player:1}, // Highlight the newly placed point
+                        highlightSquare: null,
+                        highlightPotentialSquare: {row:1, col:1, size:1, player:1}, // Potential square 1 (needs (2,1) to be red)
+                        highlightPotentialSquare2: {row:1, col:2, size:1, player:1}, // Potential square 2 (needs (2,3) to be red)
+                        message: "En plaçant ce point central, une double menace est créée !"
+                    },
+                    // Step 3: Show the two potential squares that are now formed (dashed outlines)
+                    {
+                        points: [
+                            [0,0,0,0,0],
+                            [0,1,1,1,0],
+                            [0,0,1,0,0],
+                            [0,0,0,0,0],
+                            [0,0,0,0,0]
+                        ],
+                        highlightPoint: null,
+                        highlightSquare: null,
+                        highlightPotentialSquare: {row:1, col:1, size:1, player:1}, // Potential square 1 (needs (2,1) to be red)
+                        highlightPotentialSquare2: {row:1, col:2, size:1, player:1}, // Potential square 2 (needs (2,3) to be red)
+                        message: "L'adversaire ne peut en bloquer qu'un seul, vous laissant l'autre opportunité !"
+                    }
+                ]
+            }
+        ];
+
+        function openTutorial() {
+            tutorialModal.classList.remove('hidden');
+            currentTutorialSlideIndex = 0; // Start from the first slide
+            displayTutorialSlide(currentTutorialSlideIndex);
+        }
+
+        function closeTutorial() {
+            tutorialModal.classList.add('hidden');
+            clearInterval(tutorialAnimationInterval); // Stop any running animation
+        }
+
+        function displayTutorialSlide(index) {
+            // Clear any previous animation interval
+            clearInterval(tutorialAnimationInterval);
+
+            // Hide all slides
+            Array.from(tutorialSlidesContainer.children).forEach(slide => {
+                slide.classList.remove('active');
+                // Hide any canvas or timer bar elements within old slides
+                const canvasElement = slide.querySelector('.tutorial-canvas');
+                if (canvasElement) canvasElement.style.display = 'none';
+                const timerContainer = slide.querySelector('.tutorial-timer-bar-container');
+                if (timerContainer) timerContainer.style.display = 'none';
+                const timerText = slide.querySelector('.tutorial-timer-text');
+                if (timerText) timerText.style.display = 'none';
+                const timeBankText = slide.querySelector('.tutorial-time-bank-text');
+                if (timeBankText) timeBankText.style.display = 'none';
+            });
+
+            // Show the current slide
+            const currentSlideElement = document.getElementById(`tutorial-slide-${index}`);
+            if (currentSlideElement) {
+                currentSlideElement.classList.add('active');
+
+                // Update navigation buttons state
+                tutorialPrevBtn.disabled = (index === 0);
+                tutorialNextBtn.disabled = (index === tutorialSlidesData.length - 1);
+
+                const slideData = tutorialSlidesData[index];
+
+                if (slideData.elementType === 'canvas') {
+                    const tutorialCanvas = currentSlideElement.querySelector('.tutorial-canvas');
+                    if (tutorialCanvas) {
+                        tutorialCanvas.style.display = 'block'; // Show canvas
+                        startTutorialGridAnimation(tutorialCanvas, slideData.animationSteps, slideData.gridSize);
+                    }
+                } else if (slideData.elementType === 'timer') {
+                    const timerContainer = currentSlideElement.querySelector('.tutorial-timer-bar-container');
+                    const timerProgressBar = currentSlideElement.querySelector('.tutorial-timer-progress-bar');
+                    const timerText = currentSlideElement.querySelector('.tutorial-timer-text');
+                    const timeBankText = currentSlideElement.querySelector('.tutorial-time-bank-text');
+
+                    if (timerContainer && timerProgressBar && timerText) {
+                        timerContainer.style.display = 'block'; // Show timer bar container
+                        timerText.style.display = 'block'; // Show timer text
+                        if (timeBankText) timeBankText.style.display = 'block'; // Show time bank text if exists
+
+                        startTutorialTimerAnimation(timerProgressBar, timerText, timeBankText, slideData.animationSteps);
+                    }
+                }
+            }
+        }
+
+        let currentAnimationStep = 0;
+
+        function drawSquare(ctx, square, cellSize, isDashed = false) {
+            const x = square.col * cellSize;
+            const y = square.row * cellSize;
+            const squareSizePx = square.size * cellSize;
+
+            if (isDashed) {
+                ctx.setLineDash([5, 5]); // Dashed line for potential
+                ctx.strokeStyle = square.player === 1 ? 'rgba(214, 40, 40, 0.7)' : 'rgba(42, 157, 143, 0.7)'; // Player color for outline, slightly more opaque
+                ctx.lineWidth = 3;
+                ctx.strokeRect(x, y, squareSizePx, squareSizePx);
+                ctx.setLineDash([]); // Reset line dash
+            } else {
+                ctx.fillStyle = square.player === 1 ? 'rgba(214, 40, 40, 0.4)' : 'rgba(42, 157, 143, 0.4)'; // Muted translucent red/blue
+                ctx.fillRect(x, y, squareSizePx, squareSizePx);
+                ctx.strokeStyle = square.player === 1 ? '#d62828' : '#2a9d8f'; // Muted solid red/blue border
+                ctx.lineWidth = 3;
+                ctx.strokeRect(x, y, squareSizePx, squareSizePx);
+            }
+        }
+
+        function startTutorialGridAnimation(canvasElement, animationSteps, tutorialGridSize) {
+            const ctxTutorial = canvasElement.getContext('2d');
+            const fixedCanvasSize = 200; // Fixed pixel size for tutorial canvas
+
+            canvasElement.width = fixedCanvasSize;
+            canvasElement.height = fixedCanvasSize;
+
+            const tutorialCellSize = fixedCanvasSize / (tutorialGridSize - 1);
+
+            currentAnimationStep = 0;
+
+            function animateStep() {
+                if (currentAnimationStep >= animationSteps.length) {
+                    currentAnimationStep = 0; // Loop animation
+                }
+
+                const step = animationSteps[currentAnimationStep];
+                ctxTutorial.clearRect(0, 0, canvasElement.width, canvasElement.height);
+
+                // Draw grid lines
+                ctxTutorial.strokeStyle = '#D3D3D3';
+                ctxTutorial.lineWidth = 1;
+                for (let i = 0; i < tutorialGridSize; i++) {
+                    ctxTutorial.beginPath();
+                    ctxTutorial.moveTo(i * tutorialCellSize, 0);
+                    ctxTutorial.lineTo(i * tutorialCellSize, canvasElement.height);
+                    ctxTutorial.stroke();
+                }
+                for (let i = 0; i < tutorialGridSize; i++) {
+                    ctxTutorial.beginPath();
+                    ctxTutorial.moveTo(0, i * tutorialCellSize);
+                    ctxTutorial.lineTo(canvasElement.width, i * tutorialCellSize);
+                    ctxTutorial.stroke();
+                }
+
+                // Draw points for the current step
+                for (let r = 0; r < tutorialGridSize; r++) {
+                    for (let c = 0; c < tutorialGridSize; c++) {
+                        const x = c * tutorialCellSize;
+                        const y = r * tutorialCellSize;
+                        ctxTutorial.beginPath();
+                        ctxTutorial.arc(x, y, tutorialCellSize * 0.2, 0, Math.PI * 2);
+
+                        if (step.points[r][c] === 1) {
+                            ctxTutorial.fillStyle = '#d62828'; // Player 1 (Red)
+                            ctxTutorial.fill();
+                            ctxTutorial.strokeStyle = '#333333';
+                            ctxTutorial.lineWidth = 1;
+                            ctxTutorial.stroke();
+                        } else if (step.points[r][c] === 2) {
+                            ctxTutorial.fillStyle = '#2a9d8f'; // Player 2 (Blue)
+                            ctxTutorial.fill();
+                            ctxTutorial.strokeStyle = '#333333';
+                            ctxTutorial.lineWidth = 1;
+                            ctxTutorial.stroke();
+                        } else {
+                            ctxTutorial.strokeStyle = '#333333';
+                            ctxTutorial.lineWidth = 1;
+                            ctxTutorial.stroke();
+                        }
+                    }
+                }
+
+                // Highlight point if present in step data
+                if (step.highlightPoint) {
+                    const hp = step.highlightPoint;
+                    const hpX = hp.col * tutorialCellSize;
+                    const hpY = hp.row * tutorialCellSize;
+                    ctxTutorial.beginPath();
+                    ctxTutorial.arc(hpX, hpY, tutorialCellSize * 0.25, 0, Math.PI * 2); // Slightly larger
+                    ctxTutorial.strokeStyle = 'yellow'; // Highlight color
+                    ctxTutorial.lineWidth = 3;
+                    ctxTutorial.stroke();
+                }
+
+                // Highlight square if present in step data
+                if (step.highlightSquare) {
+                    drawSquare(ctxTutorial, step.highlightSquare, tutorialCellSize, false);
+                }
+
+                // Highlight second square if present (for multiple squares example)
+                if (step.highlightSquare2) {
+                    drawSquare(ctxTutorial, step.highlightSquare2, tutorialCellSize, false);
+                }
+
+                // Highlight potential square if present (dashed outline)
+                if (step.highlightPotentialSquare) {
+                    drawSquare(ctxTutorial, step.highlightPotentialSquare, tutorialCellSize, true);
+                }
+                // Highlight second potential square if present (dashed outline)
+                if (step.highlightPotentialSquare2) {
+                    drawSquare(ctxTutorial, step.highlightPotentialSquare2, tutorialCellSize, true);
+                }
+
+                currentAnimationStep++;
+            }
+
+            // Initial draw
+            animateStep();
+            // Set interval for next steps (e.g., every 1 second)
+            tutorialAnimationInterval = setInterval(animateStep, 1000);
+        }
+
+        function startTutorialTimerAnimation(progressBarElement, timerTextElement, timeBankTextElement, animationSteps) {
+            let currentTimerAnimationStep = 0;
+
+            function animateTimerStep() {
+                if (currentTimerAnimationStep >= animationSteps.length) {
+                    currentTimerAnimationStep = 0; // Loop animation
+                }
+
+                const step = animationSteps[currentTimerAnimationStep];
+
+                const progress = (step.time / step.initialTime);
+                progressBarElement.style.transform = `scaleX(${progress})`;
+
+                timerTextElement.textContent = `Temps restant: ${formatTime(step.time)}`;
+                if (timeBankTextElement) {
+                    timeBankTextElement.textContent = `Banque de temps: ${step.timeBank}s (Joueur ${step.player})`;
+                }
+                
+                // Change color based on player for increment mode, or low time for fixed
+                if (step.player) { // For increment mode, show player color
+                    progressBarElement.style.backgroundColor = step.player === 1 ? '#d62828' : '#2a9d8f';
+                } else { // For fixed mode, use green, turn red when low
+                    if (step.time <= 3) {
+                        progressBarElement.style.backgroundColor = '#d62828'; // Red for alarm
+                    } else {
+                        progressBarElement.style.backgroundColor = '#6a994e'; // Green
+                    }
+                }
+
+                currentTimerAnimationStep++;
+            }
+
+            animateTimerStep();
+            tutorialAnimationInterval = setInterval(animateTimerStep, 1000);
+        }
+
+
+        // Tutorial navigation event listeners
+        tutorialNextBtn.addEventListener('click', () => {
+            if (currentTutorialSlideIndex < tutorialSlidesData.length - 1) {
+                currentTutorialSlideIndex++;
+                displayTutorialSlide(currentTutorialSlideIndex);
+            }
+        });
+
+        tutorialPrevBtn.addEventListener('click', () => {
+            if (currentTutorialSlideIndex > 0) {
+                currentTutorialSlideIndex--;
+                displayTutorialSlide(currentTutorialSlideIndex);
+            }
+        });
+
+        tutorialSkipBtn.addEventListener('click', closeTutorial);
+
+
+        // Initialize the game when the page loads
+        window.onload = initGame;
+    </script>
+</body>
+</html>
